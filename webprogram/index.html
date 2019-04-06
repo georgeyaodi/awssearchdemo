@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>LEGIDATA</title>
+        <script src="aws-sdk.min.js"></script>
+        <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>-->
+        <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <link rel="stylesheet" href="https://jqueryui.com/jquery-wp-content/themes/jqueryui.com/style.css">
+        <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+        <!--<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+        <script src="bootstrap3-typeahead.js"></script>-->
+        <script src="aws.js"></script> <!-- setups AWS.config.credentials and lambda -->
+        <script type="text/javascript">
+            var pullResults; // declare here to have access in browser at test time
+            function runSearch(querystring) {
+                var Payload = {
+                    'query': querystring,
+                    'size': 10,
+                    'start':0
+                };
+                var lambdaParams = {
+                    FunctionName : 'yaodisearch4doc',
+                    //InvocationType : 'Event',
+                    InvocationType : 'RequestResponse',
+                    Payload: JSON.stringify(Payload),
+                    LogType : 'None'
+                };
+                lambda.invoke(lambdaParams, function(err, lambdadata) {
+                    if (err) {
+                        console.log('Lambda ERROR');
+                        console.log(err);
+                    }
+                    else {
+                        console.log('Lambda SUCCESS');
+                        console.log(lambdadata.StatusCode);
+                        pullResults = JSON.parse(lambdadata.Payload);
+                        console.log(pullResults);
+                        $("#documentlist ul li").remove(); // clean the list before appending
+                        
+                        pullResults.hits.hit.forEach( function(hit, index) {
+                            console.log(hit);
+                            var docname = hit.fields.resourcename;
+                            var doccontent = hit.fields.content;
+                            //$("#documentlist ul").append('<li><a id="'+docname+'" href="#">'+docname+'</a></li>');
+
+                            $("#documentlist ul").append('<li><a id="'+docname+'" href="#">'+doccontent+'</a></li>');
+                        })
+                        $("#documentlist").show();
+                    }
+                });
+            }
+            function onClickSearch() {
+                var querystring = document.getElementById('inputQuery').value;
+                console.log(querystring);
+                runSearch(querystring);
+            }
+            function searchPromptWord(event) {
+                var inputQuery = $("#inputQuery").val();  
+                $('li').each(  
+                function() {
+                    var pinyin = $(this).attr("pinyin");  
+
+                    if (pinyin.indexOf(inputQuery) != -1 && inputQuery != "") {
+                      $(this).show();
+                    } else {
+                      $(this).hide();
+                    }
+                });
+           }
+
+           var availableTags = [
+                  "api platform",
+                  "api gateway",
+                  "Developer Dashboard",
+                  "Developer Portal"    
+                ];
+            $( function() {
+                
+              /* $.getJSON('https://psvw87tza9.execute-api.us-east-1.amazonaws.com/test/callyaodipromptwordsfunction', function (data) {
+                    console.log(data);
+                    availableTags = data.body;
+                    console.log(availableTags);
+                    
+                });*/
+
+
+
+               $( "#inputQuery" ).autocomplete({
+                        source:  
+                        function (request, response) {
+                            $.ajax({
+                                url: "https://psvw87tza9.execute-api.us-east-1.amazonaws.com/test/callyaodipromptwordsfunction",
+                                type: "get",
+                                dataType: "json",
+                                data: "",
+                                success: function (data) {
+
+                                    response($.map(data, function (item) {
+                                        
+                                        var itemstr = item+'';
+                                        console.log("itemstr" + itemstr);
+                                        console.log("inputQuery" + $( "#inputQuery" ).val());
+                                        if (itemstr.indexOf($( "#inputQuery" ).val())!=-1) {
+                                            
+                                            itemstr = itemstr.replace("[","").replace("]","");
+                                            while (true) {
+                                                if (itemstr.indexOf("\"")!=-1) {
+                                                    itemstr = itemstr.replace("\"","");
+                                                } else {
+                                                    break;
+                                                }
+                                            }
+                                            var availableTags1 = itemstr.split(",");
+                                            var availableTagsFinal = new Array();
+                                            for (var i=0;i<availableTags1.length;i++) {
+                                                if (availableTags1[i].indexOf($( "#inputQuery" ).val())!=-1) {
+                                                    availableTagsFinal.push(availableTags1[i]);
+                                                }
+                                            }
+                                            return availableTagsFinal;
+                                        }
+                                     
+                                    }))
+                                    //console.log(data);
+                                    //return data;
+                                }
+                            })
+                        }
+                });
+            });
+
+              /* $.ajax({
+      type: 'get',
+      url: 'https://psvw87tza9.execute-api.us-east-1.amazonaws.com/test/callyaodipromptwordsfunction',
+      data: '',
+      success: function(data) {
+        console.log(data);
+      }
+    }); 
+                
+              } );*/
+
+         /* $("#inputQuery").bind("input propertychange", function() {
+            console.log("dffff");
+            searchPromptWord();
+          }); */
+        </script>
+    </head>
+    <body>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-10 col-md-offset-1">
+
+                    <form>
+                        <div class="form-group">
+                            <label for="inputQuery">查询（例子：请输入 api,Developer,Portal,Dashboard）</label>
+                            <input class="form-control" id="inputQuery"  placeholder="请输入查询条件">
+                            <!--oninput="searchPromptWord(event)"-->
+                            <!--<ul id="yaodiul"> -->
+                              <li class="form-control" style="display:none;height:34px" pinyin="platform"><a href="#" style="color:#555">api platform</a></li>
+                              <li class="form-control" style="display:none;border:1px;height:34px" pinyin="gateway"><a href="#" style="color:#555">api gateway</a></li>
+                              <li class="form-control" style="display:none;border:1px;height:34px" pinyin="developer"><a href="#" style="color:#555">Developer Dashboard</a></li>
+                              <li class="form-control" style="display:none;border:1px;height:34px" pinyin="portal"><a href="#" style="color:#555">Developer Portal</a></li> 
+                            <!--</ul>-->
+                        </div>
+                      <!--<button class="btn btn-info" id="search" onclick="onClickSearch()">Search</button>-->
+                      <input class="btn btn-danger" type="button" style="background: orange" value="搜索" onclick="onClickSearch()">
+                    </form>
+
+                    <div id="documentlist" style="display: none;">
+                        <ul></ul>
+                    </div>
+                    
+                </div>
+            </div>
+    </body>
+</html>
